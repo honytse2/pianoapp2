@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Classical Piano Tutor - Fixed Alignment</title>
+    <style>
+        :root {
+            --ivory: #FDFCF8;
+            --ebony: #2C2C2C;
+            --mahogany: #4E2C23;
+            --ink: rgba(128, 0, 0, 0.8);
+            --gold: #D4AF37;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            font-family: 'Times New Roman', serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        header {
+            background: var(--mahogany);
+            color: var(--gold);
+            padding: 15px 20px;
+            text-align: center;
+            border-bottom: 3px solid var(--gold);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        h1 { margin: 0; font-size: 1.2rem; letter-spacing: 2px; }
+
+        #clear-btn {
+            background: transparent;
+            border: 1.5px solid var(--gold);
+            color: var(--gold);
+            padding: 8px 15px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: bold;
+            font-size: 0.7rem;
+            transition: all 0.2s;
+        }
+
+        #clear-btn:active {
+            background: var(--gold);
+            color: var(--mahogany);
+        }
+
+        /* The Piano Container */
+        .piano-container {
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            background: #000;
+            padding: 0 2px;
+            touch-action: none;
+        }
+
+        .white-key {
+            flex: 1;
+            border: 1px solid #d1d1d1;
+            background: var(--ivory);
+            border-radius: 0 0 5px 5px;
+            box-shadow: inset 0 -15px 20px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1;
+        }
+
+        .white-key:active {
+            background: #eee;
+        }
+
+        .black-key {
+            width: 8%; /* Adjusted for 1-octave spacing */
+            height: 60%;
+            background: linear-gradient(to bottom, #444, #111);
+            position: absolute;
+            z-index: 2;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 3px 5px 8px rgba(0,0,0,0.6);
+        }
+
+        /* The Snapped Circle */
+        .tap-circle {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: var(--ink);
+            border: 2px solid var(--gold);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>CONSERVATORY PIANO</h1>
+    <button id="clear-btn" onclick="clearTaps()">Clear Notation</button>
+</header>
+
+<div class="piano-container" id="piano">
+    <div class="white-key" data-note="C"></div>
+    <div class="white-key" data-note="D"></div>
+    <div class="white-key" data-note="E"></div>
+    <div class="white-key" data-note="F"></div>
+    <div class="white-key" data-note="G"></div>
+    <div class="white-key" data-note="A"></div>
+    <div class="white-key" data-note="B"></div>
+    <div class="white-key" data-note="C"></div>
+
+    <div class="black-key" style="left: 8.5%" data-note="C#"></div>
+    <div class="black-key" style="left: 21%" data-note="D#"></div>
+    <div class="black-key" style="left: 46%" data-note="F#"></div>
+    <div class="black-key" style="left: 58.5%" data-note="G#"></div>
+    <div class="black-key" style="left: 71%" data-note="A#"></div>
+</div>
+
+<script>
+    const piano = document.getElementById('piano');
+
+    function handleInput(e) {
+        // Prevent default zoom/scroll on mobile
+        if(e.type === 'touchstart') e.preventDefault();
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        
+        // Find the key element at the tap location
+        const targetKey = document.elementFromPoint(clientX, clientY);
+
+        if (targetKey && (targetKey.classList.contains('white-key') || targetKey.classList.contains('black-key'))) {
+            
+            const rect = targetKey.getBoundingClientRect();
+            const containerRect = piano.getBoundingClientRect();
+
+            // SNAP LOGIC:
+            // X = Horizontal center of the specific key
+            // Y = 75% down the length of that specific key
+            const centerX = (rect.left + rect.width / 2) - containerRect.left;
+            const snapY = (rect.top + rect.height * 0.75) - containerRect.top;
+
+            createMarker(centerX, snapY, targetKey.getAttribute('data-note'));
+            playTone();
+        }
+    }
+
+    function createMarker(x, y, noteName) {
+        const circle = document.createElement('div');
+        circle.className = 'tap-circle';
+        circle.style.left = x + 'px';
+        circle.style.top = y + 'px';
+        circle.innerText = noteName;
+        piano.appendChild(circle);
+    }
+
+    function clearTaps() {
+        const circles = document.querySelectorAll('.tap-circle');
+        circles.forEach(c => c.remove());
+    }
+
+    // Basic Synth Engine
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle'; // Warmer sound for classical feel
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.8);
+        osc.stop(audioCtx.currentTime + 0.8);
+    }
+
+    // Support both mouse and touch
+    piano.addEventListener('touchstart', handleInput, {passive: false});
+    piano.addEventListener('mousedown', handleInput);
+</script>
+
+</body>
+</html>
